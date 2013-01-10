@@ -4,35 +4,10 @@
 
 class Board(object):
 
-    def __init__(self):
+    def __init__(self, fen):
         self._board = [None] * 64
+        self.set_fen(fen)
         self._moves = []
-        self.setup()
-
-    def setup(self):
-        self[0, 0] = Rock(self)
-        self[1, 0] = Knight(self)
-        self[2, 0] = Bishop(self)
-        self[3, 0] = Queen(self)
-        self[4, 0] = King(self)
-        self[5, 0] = Bishop(self)
-        self[6, 0] = Knight(self)
-        self[7, 0] = Rock(self)
-
-        for i in range(8):
-            self[i, 1] = Pawn(self)
-            self[i, 6] = Pawn(self, black=True)
-
-        self[0, 7] = Rock(self, black=True)
-        self[1, 7] = Knight(self, black=True)
-        self[2, 7] = Bishop(self, black=True)
-        self[3, 7] = Queen(self, black=True)
-        self[4, 7] = King(self, black=True)
-        self[5, 7] = Bishop(self, black=True)
-        self[6, 7] = Knight(self, black=True)
-        self[7, 7] = Rock(self, black=True)
-
-        self._white_to_move = True
 
     def __setitem__(self, key, value):
         """
@@ -48,6 +23,9 @@ class Board(object):
     def __getitem__(self, key):
         i, j = key
         return self._board[j * 8 + i]
+
+    def __str__(self):
+        return self.to_ascii_art()
 
     def a2i(self, x):
         if x == "a":
@@ -225,7 +203,7 @@ class Board(object):
                     else:
                         row += " %s |" % self[i, j].to_ascii_art()
                 else:
-                    row += " |"
+                    row += "   |"
             s += row + "\n"
             s += "+" + "---+" * 8 + "\n"
         return s
@@ -240,14 +218,47 @@ class Board(object):
                     s += self[i, j].to_string()
         return s
 
-    def __str__(self):
-        return self.to_ascii_art()
-
     def get_moves(self):
         """
         Return a list of moves in "e2e4" notation.
         """
         return self._moves
+
+    def get_fen(self):
+        return "FEN 222"
+
+    def set_fen(self, fen):
+        tabuleiro, vez, castle, enpassant, halfmove, fullmove = fen.split(' ')
+        indice = 0
+        linhas = tabuleiro.split('/')
+        for linha in linhas:
+            for letra in linha:
+                if not letra.isdigit():
+                    peca = self.letter_to_piece(letra)
+                    self._board[indice] = peca
+                    indice += 1
+                else:
+                    for i in range(int(letra)):
+                        self._board[indice] = None
+                        indice += 1
+        self._white_to_move = (vez == 'w')
+
+    def letter_to_piece(self, letter):
+        black = letter.isupper()
+        letter = letter.lower()
+        if letter == "r":
+            piece = Rock(self, black=black)
+        if letter == "n":
+            piece = Knight(self, black=black)
+        if letter == "b":
+            piece = Bishop(self, black=black)
+        if letter == "q":
+            piece = Queen(self, black=black)
+        if letter == "k":
+            piece = King(self, black=black)
+        if letter == "p":
+            piece = Pawn(self, black=black)
+        return piece
 
 
 class Piece(object):
@@ -305,6 +316,12 @@ class Rock(Piece):
             return True
         return False
 
+    def __str__(self):
+        if self._black:
+            return "Torre Preta"
+        else:
+            return "Torre Branca"
+
 
 class Knight(Piece):
 
@@ -320,6 +337,12 @@ class Knight(Piece):
     def can_move(self, old, new):
         d = (old[0] - new[0]) ** 2 + (old[1] - new[1]) ** 2
         return d == 5
+
+    def __str__(self):
+        if self._black:
+            return "Cavalo Preto"
+        else:
+            return "Cavalo Branco"
 
 
 class Bishop(Piece):
@@ -338,6 +361,12 @@ class Bishop(Piece):
         dy = old[1] - new[1]
         return (dx == dy) or (dx == -dy)
 
+    def __str__(self):
+        if self._black:
+            return "Bispo Preto"
+        else:
+            return "Bispo Branco"
+
 
 class Queen(Piece):
 
@@ -353,6 +382,12 @@ class Queen(Piece):
     def can_move(self, old, new):
         return Bishop(self._board, self._black).can_move(old, new) or \
                 Rock(self._board, self._black).can_move(old, new)
+
+    def __str__(self):
+        if self._black:
+            return "Rainha Preta"
+        else:
+            return "Rainha Branca"
 
 
 class King(Piece):
@@ -370,6 +405,12 @@ class King(Piece):
         dx = old[0] - new[0]
         dy = old[1] - new[1]
         return (dx in [-1, 0, 1]) and (dy in [-1, 0, 1])
+
+    def __str__(self):
+        if self._black:
+            return "Rei Preto"
+        else:
+            return "Rei Branco"
 
 
 class Pawn(Piece):
@@ -409,3 +450,9 @@ class Pawn(Piece):
                     if (new[1] == 2) and isinstance(b, Pawn) and b.white():
                         return True
         return False
+
+    def __str__(self):
+        if self._black:
+            return "Peão Preto"
+        else:
+            return "Peão Branco"
