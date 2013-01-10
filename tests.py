@@ -11,8 +11,15 @@ class ModelTest(TestCase):
             black_player=1,
             fen='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
 
-    def test_game(self):
+    def test_create_game(self):
         tst_game = Game.objects.get(pk=self.game.id)
         self.assertEqual(tst_game.fen,
                 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
-        #tst_game.move()
+
+    def test_move(self):
+        tst_game = Game.objects.get(pk=self.game.id)
+        self.assertTrue(tst_game.move('Nf3'))
+
+    def test_invalid_move(self):
+        tst_game = Game.objects.get(pk=self.game.id)
+        self.assertFalse(tst_game.move('e5'))
