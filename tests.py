@@ -13,3 +13,6 @@ class ModelTest(TestCase):
 
     def test_game(self):
         tst_game = Game.objects.get(pk=self.game.id)
+        self.assertEqual(tst_game.fen,
+                'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+        #tst_game.move()
