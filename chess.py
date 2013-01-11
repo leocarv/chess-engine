@@ -27,6 +27,33 @@ class Board(object):
     def __str__(self):
         return self.to_ascii_art()
 
+    def to_ascii_art(self):
+        s = ""
+        s += "+" + "---+" * 8 + "\n"
+        for j in reversed(range(8)):
+            row = "|"
+            for i in range(8):
+                if self[i, j] is not None:
+                    if self[i, j].black():
+                        row += "#%s#|" % self[i, j].to_ascii_art()
+                    else:
+                        row += " %s |" % self[i, j].to_ascii_art()
+                else:
+                    row += "   |"
+            s += row + "\n"
+            s += "+" + "---+" * 8 + "\n"
+        return s
+
+    def to_string(self):
+        s = ""
+        for j in reversed(range(8)):
+            for i in range(8):
+                if self[i, j] is None:
+                    s += " "
+                else:
+                    s += self[i, j].to_string()
+        return s
+
     def a2i(self, x):
         if x == "a":
             i = 0
@@ -191,33 +218,6 @@ class Board(object):
                     self.i2a(new[0]), new[1] + 1)
             self._moves.append(move)
 
-    def to_ascii_art(self):
-        s = ""
-        s += "+" + "---+" * 8 + "\n"
-        for j in reversed(range(8)):
-            row = "|"
-            for i in range(8):
-                if self[i, j] is not None:
-                    if self[i, j].black():
-                        row += "#%s#|" % self[i, j].to_ascii_art()
-                    else:
-                        row += " %s |" % self[i, j].to_ascii_art()
-                else:
-                    row += "   |"
-            s += row + "\n"
-            s += "+" + "---+" * 8 + "\n"
-        return s
-
-    def to_string(self):
-        s = ""
-        for j in reversed(range(8)):
-            for i in range(8):
-                if self[i, j] is None:
-                    s += " "
-                else:
-                    s += self[i, j].to_string()
-        return s
-
     def get_moves(self):
         """
         Return a list of moves in "e2e4" notation.
@@ -225,13 +225,48 @@ class Board(object):
         return self._moves
 
     def get_fen(self):
-        return "FEN 222"
+        def print_board():
+            r = ""
+            for j in reversed(range(8)):
+                counter = 0
+                for i in range(8):
+                    if self[i, j] is None:
+                        counter += 1
+                    else:
+                        if counter > 0:
+                            r += str(counter)
+                        counter = 0
+                        r += self[i, j].to_string()
+                if counter > 0:
+                    r += str(counter)
+                if j > 0:
+                    r += "/"
+            return r
+
+        def print_vez():
+            return 'w' if self._white_to_move else 'b'
+
+        def print_castle():
+            return self._castle
+
+        def print_enpassant():
+            return self._enpassant
+
+        def print_halfmove():
+            return self._halfmove
+
+        def print_fullmove():
+            return self._fullmove
+
+        s = ' '.join([print_board(), print_vez(), print_castle(),
+                print_enpassant(), print_halfmove(), print_fullmove()])
+        return s
 
     def set_fen(self, fen):
         tabuleiro, vez, castle, enpassant, halfmove, fullmove = fen.split(' ')
         indice = 0
         linhas = tabuleiro.split('/')
-        for linha in linhas:
+        for linha in reversed(linhas):
             for letra in linha:
                 if not letra.isdigit():
                     peca = self.letter_to_piece(letra)
@@ -241,10 +276,15 @@ class Board(object):
                     for i in range(int(letra)):
                         self._board[indice] = None
                         indice += 1
+
         self._white_to_move = (vez == 'w')
+        self._castle = castle
+        self._enpassant = enpassant
+        self._halfmove = halfmove
+        self._fullmove = fullmove
 
     def letter_to_piece(self, letter):
-        black = letter.isupper()
+        black = not letter.isupper()
         letter = letter.lower()
         if letter == "r":
             piece = Rock(self, black=black)
@@ -281,9 +321,9 @@ class Rock(Piece):
 
     def to_string(self):
         if self._black:
-            return "R"
-        else:
             return "r"
+        else:
+            return "R"
 
     def can_move(self, old, new):
         def r(a, b):
@@ -330,9 +370,9 @@ class Knight(Piece):
 
     def to_string(self):
         if self._black:
-            return "N"
-        else:
             return "n"
+        else:
+            return "N"
 
     def can_move(self, old, new):
         d = (old[0] - new[0]) ** 2 + (old[1] - new[1]) ** 2
@@ -352,9 +392,9 @@ class Bishop(Piece):
 
     def to_string(self):
         if self._black:
-            return "B"
-        else:
             return "b"
+        else:
+            return "B"
 
     def can_move(self, old, new):
         dx = old[0] - new[0]
@@ -375,9 +415,9 @@ class Queen(Piece):
 
     def to_string(self):
         if self._black:
-            return "Q"
-        else:
             return "q"
+        else:
+            return "Q"
 
     def can_move(self, old, new):
         return Bishop(self._board, self._black).can_move(old, new) or \
@@ -397,9 +437,9 @@ class King(Piece):
 
     def to_string(self):
         if self._black:
-            return "K"
-        else:
             return "k"
+        else:
+            return "K"
 
     def can_move(self, old, new):
         dx = old[0] - new[0]
@@ -420,9 +460,9 @@ class Pawn(Piece):
 
     def to_string(self):
         if self._black:
-            return "P"
-        else:
             return "p"
+        else:
+            return "P"
 
     def can_move(self, old, new):
         dx = new[0] - old[0]

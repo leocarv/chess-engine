@@ -1,5 +1,6 @@
 from django.test import TestCase
 from game.models import Game
+from chess import Board
 
 
 class ModelTest(TestCase):
@@ -16,10 +17,12 @@ class ModelTest(TestCase):
         self.assertEqual(tst_game.fen,
                 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
 
-    def test_move(self):
-        tst_game = Game.objects.get(pk=self.game.id)
-        self.assertTrue(tst_game.move('Nf3'))
 
-    def test_invalid_move(self):
-        tst_game = Game.objects.get(pk=self.game.id)
-        self.assertFalse(tst_game.move('e5'))
+class GameTest(TestCase):
+
+    def setUp(self):
+        self.my_board = Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+
+    def test_complete_game(self):
+        self.my_board.move_algebraic('e4')
+        self.assertEqual(self.my_board.get_fen(), 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1')
