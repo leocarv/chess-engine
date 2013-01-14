@@ -20,19 +20,6 @@ class ModelTest(TestCase):
 
 class GameTest(TestCase):
 
-    def setUp(self):
-        self.my_board = Board()
-
-    def test_en_passant(self):
-        self.my_board = Board('rnbqkb1r/ppp1ppp1/5n1p/2Pp4/8/4P3/PP1P1PPP/RNBQKBNR w KQkq d6 0 4')
-        self.my_board.move_algebraic('cxd6')
-        print self.my_board.to_ascii_art()
-
-    def test_helper(self):
-        self.my_board = Board('8/8/4kr2/3p4/8/1N1K1N2/8/8 w - - 0 1')
-        self.my_board.move_algebraic('Nbd4+')
-        print self.my_board.to_ascii_art()
-
     def test_get_fen(self):
         self.my_board = Board()
         moves = [
@@ -50,3 +37,19 @@ class GameTest(TestCase):
             fen = self.my_board.get_fen()
             self.assertEqual(fen, move[1],
                 'erro no movimento %s \n esperado: %s \n recebido: %s' % (move[0], move[1], fen))
+
+    def test_en_passant(self):
+        self.my_board = Board('rnbqkb1r/ppp1ppp1/5n1p/2Pp4/8/4P3/PP1P1PPP/RNBQKBNR w KQkq d6 0 4')
+        self.my_board.move_algebraic('cxd6')
+        print self.my_board.to_ascii_art()
+
+    def test_helper(self):
+        self.my_board = Board('8/8/4kr2/3p4/8/1N1K1N2/8/8 w - - 0 1')
+        self.my_board.move_algebraic('Nbd4+')
+        print self.my_board.to_ascii_art()
+
+    def test_castling(self):
+        self.my_board = Board('rn1qkbnr/ppp2ppp/3p4/4p3/2B1P1b1/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4')
+        self.my_board.move_algebraic('Rg1')
+        self.assertEqual(self.my_board.get_fen(),
+                'rn1qkbnr/ppp2ppp/3p4/4p3/2B1P1b1/5N2/PPPP1PPP/RNBQK1R1 b Qkq - 0 4')
