@@ -4,10 +4,22 @@
 
 class Board(object):
 
-    def __init__(self, fen):
+    def __init__(self,
+        fen='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'):
+        # inicializa matriz de 64 posições
         self._board = [None] * 64
+        # indica com quem está a vez
+        self._white_to_move = True
+        # indica se o roque está permitido
+        self._castle = '-'
+        # se enpassant é possível na jogada atual
+        self._enpassant = '-'
+        # contador de jogadas
+        self._halfmove = 0
+        # contador de jogada completa
+        self._fullmove = 0
+        # inicializa a posição
         self.set_fen(fen)
-        self._moves = []
 
     def __setitem__(self, key, value):
         """
@@ -76,69 +88,6 @@ class Board(object):
     def i2a(self, i):
         return "abcdefgh"[i]
 
-    def parse_move(self, move):
-        def convert_field(field):
-            if len(field) == 2:
-                x = field[0]
-                y = field[1]
-                i = self.a2i(x)
-                j = int(y) - 1
-                return i, j
-            else:
-                raise InvalidMove(move)
-        if move[0] == "R":
-            piece = Rock
-        elif move[0] == "N":
-            piece = Knight
-        elif move[0] == "B":
-            piece = Bishop
-        elif move[0] == "Q":
-            piece = Queen
-        elif move[0] == "K":
-            piece = King
-        else:
-            piece = Pawn
-        if piece != Pawn:
-            move = move[1:]
-        if move.find("x") != -1:
-            capture = True
-            move = move.replace("x", "")
-        else:
-            capture = False
-        if move[-1] == "+":
-            check = True
-            move = move[:-1]
-        else:
-            check = False
-        helper = move[:-2]
-        move = move[-2:]
-        field = convert_field(move)
-        return piece, field, capture, check, helper
-
-    def find_piece(self, piece, field):
-        """
-        Finds the piece "piece" that can go to the field "field".
-        """
-        candidates = []
-        # first find all pieces of the type "piece" on the board:
-        for i in range(8):
-            for j in range(8):
-                if isinstance(self[i, j], piece) and \
-                        (self[i, j].white() == self._white_to_move):
-                            candidates += [(i, j)]
-        # try each of them:
-        candidates = [x for x in candidates if self[x].can_move(x, field)]
-        return candidates
-
-    def use_helper(self, helper, candidates):
-        if (helper != "") and (helper in "abcdefgh"):
-            i = self.a2i(helper)
-            return [x for x in candidates if x[0] == i]
-        if (helper != "") and (helper in "12345678"):
-            j = int(helper) - 1
-            return [x for x in candidates if x[1] == j]
-        return candidates
-
     def moves_from_list(self, moves):
         for move in moves:
             self.move_algebraic(move)
@@ -166,23 +115,115 @@ class Board(object):
                 self.move_coordinate((4, 7), (2, 7))
                 self.move_coordinate((0, 7), (3, 7), True)
         else:
+            # faz o parser do texto do movimento
             piece, field, capture, check, helper = self.parse_move(move)
+
+            # se for captura e a casa destino estiver vazia
+            # for um peão e a linha de destino for 2 ou 5 caso contrario
+            # dispara erro, pois o peão é a unica peça que permite isso
             if capture:
                 if self[field] is None:
                     if (piece == Pawn) and (field[1] in [2, 5]):
-                        # this is probably en passant, so ok
-                        pass
+                        if (self._enpassant == '-') \
+                        or (not self._enpassant in move):
+                            raise InvalidMove(move)
+                        else:
+                            pass  # this is probably en passant, so ok
                     else:
                         raise InvalidMove(move)
             else:
+            # se não for uma captura e a casa destino estiver
+            # ocupada dispara erro
                 if self[field] is not None:
                     raise InvalidMove(move)
+
+            # faz uma pesquina no tabuleiro para encontrar a peça
             possible_pieces = self.find_piece(piece, field)
+            # se achar um total de peças diferente de 1 tenta a desambiguação
             if len(possible_pieces) != 1:
                 possible_pieces = self.use_helper(helper, possible_pieces)
+            # caso continue a desambiguação, dispara erro
             if len(possible_pieces) != 1:
                 raise InvalidMove(move)
+
+            # se for peão e andar 2 casas, gera o enpassant move para o fen
+            if (piece == Pawn) and (abs(possible_pieces[0][1] - field[1]) == 2):
+                self._enpassant = self.i2a(field[0])
+                fator = field[1] if self._white_to_move else field[1] + 2
+                self._enpassant += str(fator)
+            else:
+                self._enpassant = '-'
+
+            # realiza o movimento =========================
             self.move_coordinate(possible_pieces[0], field)
+
+    def parse_move(self, move):
+        def convert_field(field):
+            if len(field) == 2:
+                x = field[0]
+                y = field[1]
+                i = self.a2i(x)
+                j = int(y) - 1
+                return i, j
+            else:
+                raise InvalidMove(move)
+        # verifica a peça =============================
+        if move[0] == "R":
+            piece = Rock
+        elif move[0] == "N":
+            piece = Knight
+        elif move[0] == "B":
+            piece = Bishop
+        elif move[0] == "Q":
+            piece = Queen
+        elif move[0] == "K":
+            piece = King
+        else:
+            piece = Pawn
+        if piece != Pawn:  # remove a letra da peça, peão não tem
+            move = move[1:]
+        # verifica se é uma captura ===================
+        if move.find("x") != -1:
+            capture = True
+            move = move.replace("x", "")  # remove o x
+        else:
+            capture = False
+        # verifica se é um check =====================
+        if move[-1] == "+":
+            check = True
+            move = move[:-1]              # remove o +
+        else:
+            check = False
+        # verifica se é uma jogada de desambiguação ==
+        helper = move[:-2]
+        # recupera o campo destino ===================
+        move = move[-2:]
+        field = convert_field(move)
+        return piece, field, capture, check, helper
+
+    def find_piece(self, piece, field):
+        """
+        Finds the piece "piece" that can go to the field "field".
+        """
+        candidates = []
+        # first find all pieces of the type "piece" on the board:
+        for i in range(8):
+            for j in range(8):
+                if isinstance(self[i, j], piece) and \
+                        (self[i, j].white() == self._white_to_move):
+                            candidates += [(i, j)]
+        # try each of them:
+        candidates = [x for x in candidates if self[x].can_move(x, field)]
+        return candidates
+
+    def use_helper(self, helper, candidates):
+        if (helper != "") and (helper in "abcdefgh"):
+            i = self.a2i(helper)
+            return [x for x in candidates if x[0] == i]
+        if (helper != "") and (helper in "12345678"):
+            j = int(helper) - 1
+            return [x for x in candidates if x[1] == j]
+        return candidates
 
     def move_coordinate(self, old, new, castling=False):
         """
@@ -212,17 +253,12 @@ class Board(object):
                 b = self[new[0], 3]
                 if (new[1] == 2) and isinstance(b, Pawn) and b.white():
                     self[new[0], 3] = None
+
+        if not self._white_to_move:
+            self._fullmove += 1
+
         if not castling:
             self._white_to_move = not self._white_to_move
-            move = "%s%d%s%d" % (self.i2a(old[0]), old[1] + 1,
-                    self.i2a(new[0]), new[1] + 1)
-            self._moves.append(move)
-
-    def get_moves(self):
-        """
-        Return a list of moves in "e2e4" notation.
-        """
-        return self._moves
 
     def get_fen(self):
         def print_board():
@@ -253,52 +289,50 @@ class Board(object):
             return self._enpassant
 
         def print_halfmove():
-            return self._halfmove
+            return str(self._halfmove)
 
         def print_fullmove():
-            return self._fullmove
+            return str(self._fullmove)
 
         s = ' '.join([print_board(), print_vez(), print_castle(),
                 print_enpassant(), print_halfmove(), print_fullmove()])
         return s
 
     def set_fen(self, fen):
+        def letter_to_piece(letter):
+            black = not letter.isupper()
+            letter = letter.lower()
+            if letter == "r":
+                piece = Rock(self, black=black)
+            if letter == "n":
+                piece = Knight(self, black=black)
+            if letter == "b":
+                piece = Bishop(self, black=black)
+            if letter == "q":
+                piece = Queen(self, black=black)
+            if letter == "k":
+                piece = King(self, black=black)
+            if letter == "p":
+                piece = Pawn(self, black=black)
+            return piece
         tabuleiro, vez, castle, enpassant, halfmove, fullmove = fen.split(' ')
         indice = 0
         linhas = tabuleiro.split('/')
         for linha in reversed(linhas):
             for letra in linha:
                 if not letra.isdigit():
-                    peca = self.letter_to_piece(letra)
+                    peca = letter_to_piece(letra)
                     self._board[indice] = peca
                     indice += 1
                 else:
                     for i in range(int(letra)):
                         self._board[indice] = None
                         indice += 1
-
         self._white_to_move = (vez == 'w')
         self._castle = castle
         self._enpassant = enpassant
-        self._halfmove = halfmove
-        self._fullmove = fullmove
-
-    def letter_to_piece(self, letter):
-        black = not letter.isupper()
-        letter = letter.lower()
-        if letter == "r":
-            piece = Rock(self, black=black)
-        if letter == "n":
-            piece = Knight(self, black=black)
-        if letter == "b":
-            piece = Bishop(self, black=black)
-        if letter == "q":
-            piece = Queen(self, black=black)
-        if letter == "k":
-            piece = King(self, black=black)
-        if letter == "p":
-            piece = Pawn(self, black=black)
-        return piece
+        self._halfmove = int(halfmove)
+        self._fullmove = int(fullmove)
 
 
 class Piece(object):
