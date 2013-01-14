@@ -241,8 +241,10 @@ class Board(object):
             if not (self._white_to_move == (not p.black())):
                 raise InvalidMove()
 
+        # faz o movimento de fato!
         self[old] = None
         self[new] = p
+
         # en passant:
         if isinstance(p, Pawn):
             if self._white_to_move:
@@ -254,9 +256,33 @@ class Board(object):
                 if (new[1] == 2) and isinstance(b, Pawn) and b.white():
                     self[new[0], 3] = None
 
+        # Se for uma jogada das pretas, incrementa o fullmove
         if not self._white_to_move:
             self._fullmove += 1
 
+        # atualiza castling options =============================
+        if isinstance(p, King):  # se mover o REI
+            if self._white_to_move:
+                self._castle = self._castle.replace('K', "")
+                self._castle = self._castle.replace('Q', "")
+            else:
+                self._castle = self._castle.replace('k', "")
+                self._castle = self._castle.replace('q', "")
+        if isinstance(p, Rock):  # se mover o Torre
+            if self._white_to_move:
+                if old == (0, 0):
+                    self._castle = self._castle.replace('Q', "")
+                if old == (7, 0):
+                    self._castle = self._castle.replace('K', "")
+            else:
+                if old == (0, 7):
+                    self._castle = self._castle.replace('q', "")
+                if old == (7, 7):
+                    self._castle = self._castle.replace('k', "")
+        if self._castle == '':
+            self._castle = '-'
+
+        # troca a vez ===========================================
         if not castling:
             self._white_to_move = not self._white_to_move
 
