@@ -6,6 +6,7 @@ class Board(object):
 
     def __init__(self,
         fen='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'):
+        # se não informar o parametro FEN, monta o tabuleiro na posição inicial
         # inicializa matriz de 64 posições
         self._board = [None] * 64
         # indica com quem está a vez
@@ -56,15 +57,81 @@ class Board(object):
             s += "+" + "---+" * 8 + "\n"
         return s
 
-    def to_string(self):
-        s = ""
-        for j in reversed(range(8)):
-            for i in range(8):
-                if self[i, j] is None:
-                    s += " "
-                else:
-                    s += self[i, j].to_string()
+    def get_fen(self):
+        def print_board():
+            r = ""
+            for j in reversed(range(8)):
+                counter = 0
+                for i in range(8):
+                    if self[i, j] is None:
+                        counter += 1
+                    else:
+                        if counter > 0:
+                            r += str(counter)
+                        counter = 0
+                        r += self[i, j].to_string()
+                if counter > 0:
+                    r += str(counter)
+                if j > 0:
+                    r += "/"
+            return r
+
+        def print_vez():
+            return 'w' if self._white_to_move else 'b'
+
+        def print_castle():
+            return self._castle
+
+        def print_enpassant():
+            return self._enpassant
+
+        def print_halfmove():
+            return str(self._halfmove)
+
+        def print_fullmove():
+            return str(self._fullmove)
+
+        s = ' '.join([print_board(), print_vez(), print_castle(),
+                print_enpassant(), print_halfmove(), print_fullmove()])
         return s
+
+    def set_fen(self, fen):
+
+        def letter_to_piece(letter):
+            black = not letter.isupper()
+            letter = letter.lower()
+            if letter == "r":
+                piece = Rock(self, black=black)
+            if letter == "n":
+                piece = Knight(self, black=black)
+            if letter == "b":
+                piece = Bishop(self, black=black)
+            if letter == "q":
+                piece = Queen(self, black=black)
+            if letter == "k":
+                piece = King(self, black=black)
+            if letter == "p":
+                piece = Pawn(self, black=black)
+            return piece
+
+        tabuleiro, vez, castle, enpassant, halfmove, fullmove = fen.split(' ')
+        indice = 0
+        linhas = tabuleiro.split('/')
+        for linha in reversed(linhas):
+            for letra in linha:
+                if not letra.isdigit():
+                    peca = letter_to_piece(letra)
+                    self._board[indice] = peca
+                    indice += 1
+                else:
+                    for i in range(int(letra)):
+                        self._board[indice] = None
+                        indice += 1
+        self._white_to_move = (vez == 'w')
+        self._castle = castle
+        self._enpassant = enpassant
+        self._halfmove = int(halfmove)
+        self._fullmove = int(fullmove)
 
     def a2i(self, x):
         if x == "a":
@@ -98,6 +165,7 @@ class Board(object):
 
         "move" is given in the Short Algebraic notation.
         """
+        """
         if move == "O-O":
             # kingside castling
             if self._white_to_move:
@@ -115,49 +183,37 @@ class Board(object):
                 self.move_coordinate((4, 7), (2, 7))
                 self.move_coordinate((0, 7), (3, 7), True)
         else:
-            # faz o parser do texto do movimento
-            piece, field, capture, check, helper = self.parse_move(move)
-
-            # se for captura e a casa destino estiver vazia
-            # for um peão e a linha de destino for 2 ou 5 caso contrario
-            # dispara erro, pois o peão é a unica peça que permite isso
-            if capture:
-                if self[field] is None:
-                    if (piece == Pawn) and (field[1] in [2, 5]):
-                        if (self._enpassant == '-') \
-                        or (not self._enpassant in move):
-                            raise InvalidMove(move)
-                        else:
-                            pass  # this is probably en passant, so ok
-                    else:
-                        raise InvalidMove(move)
-            else:
-            # se não for uma captura e a casa destino estiver
-            # ocupada dispara erro
-                if self[field] is not None:
-                    raise InvalidMove(move)
-
-            # faz uma pesquina no tabuleiro para encontrar a peça
-            possible_pieces = self.find_piece(piece, field)
-            # se achar um total de peças diferente de 1 tenta a desambiguação
-            if len(possible_pieces) != 1:
-                possible_pieces = self.use_helper(helper, possible_pieces)
-            # caso continue a desambiguação, dispara erro
-            if len(possible_pieces) != 1:
-                raise InvalidMove(move)
-
-            # se for peão e andar 2 casas, gera o enpassant move para o fen
-            if (piece == Pawn) and (abs(possible_pieces[0][1] - field[1]) == 2):
-                self._enpassant = self.i2a(field[0])
-                fator = field[1] if self._white_to_move else field[1] + 2
-                self._enpassant += str(fator)
-            else:
-                self._enpassant = '-'
-
-            # realiza o movimento =========================
-            self.move_coordinate(possible_pieces[0], field)
+        """
+        #=================================================================
+        # faz o parser do texto do movimento
+        piece, field, capture, check, helper, castle = self.parse_move(move)
+        #=================================================================
+        # valida movimento! dispara exceção "InvalidMove" se for inválido
+        if not self.valid_move(move, piece, field, capture, castle):
+            raise InvalidMove(move)
+        #=================================================================
+        # faz uma pesquina no tabuleiro para encontrar a peça
+        possible_pieces = self.find_piece(piece, field)
+        # se achar um total de peças diferente de 1 tenta a desambiguação!
+        if len(possible_pieces) != 1:
+            possible_pieces = self.use_helper(helper, possible_pieces)
+        # caso continue a desambiguação, dispara erro
+        if len(possible_pieces) != 1:
+            raise InvalidMove(move)
+        #=================================================================
+        # se for peão e andar 2 casas, gera o enpassant move para o fen
+        if piece == Pawn and abs(possible_pieces[0][1] - field[1]) == 2:
+            self._enpassant = self.i2a(field[0])
+            fator = field[1] if self._white_to_move else field[1] + 2
+            self._enpassant += str(fator)
+        else:
+            self._enpassant = '-'
+        #=================================================================
+        # realiza o movimento ============================================
+        self.move_coordinate(possible_pieces[0], field)
 
     def parse_move(self, move):
+
         def convert_field(field):
             if len(field) == 2:
                 x = field[0]
@@ -167,39 +223,107 @@ class Board(object):
                 return i, j
             else:
                 raise InvalidMove(move)
-        # verifica a peça =============================
-        if move[0] == "R":
-            piece = Rock
-        elif move[0] == "N":
-            piece = Knight
-        elif move[0] == "B":
-            piece = Bishop
-        elif move[0] == "Q":
-            piece = Queen
-        elif move[0] == "K":
+
+        if move == "O-O" or move == "O-O-O":
             piece = King
-        else:
-            piece = Pawn
-        if piece != Pawn:  # remove a letra da peça, peão não tem
-            move = move[1:]
-        # verifica se é uma captura ===================
-        if move.find("x") != -1:
-            capture = True
-            move = move.replace("x", "")  # remove o x
-        else:
+            castle = True
             capture = False
-        # verifica se é um check =====================
-        if move[-1] == "+":
-            check = True
-            move = move[:-1]              # remove o +
-        else:
             check = False
-        # verifica se é uma jogada de desambiguação ==
-        helper = move[:-2]
-        # recupera o campo destino ===================
-        move = move[-2:]
-        field = convert_field(move)
-        return piece, field, capture, check, helper
+            helper = ''
+            if move == "O-O":  # kingside castling
+                if self._white_to_move:
+                    field = (6, 0)
+                else:
+                    field = (6, 7)
+            elif move == "O-O-O":  # queenside castling
+                if self._white_to_move:
+                    field = (2, 0)
+                else:
+                    field = (2, 7)
+        else:
+            castle = False
+            # verifica a peça =============================
+            if move[0] == "R":
+                piece = Rock
+            elif move[0] == "N":
+                piece = Knight
+            elif move[0] == "B":
+                piece = Bishop
+            elif move[0] == "Q":
+                piece = Queen
+            elif move[0] == "K":
+                piece = King
+            else:
+                piece = Pawn
+            if piece != Pawn:  # remove a letra da peça, peão não tem
+                move = move[1:]
+            # verifica se é uma captura ===================
+            if move.find("x") != -1:
+                capture = True
+                move = move.replace("x", "")  # remove o x
+            else:
+                capture = False
+            # verifica se é um check =====================
+            if move[-1] == "+":
+                check = True
+                move = move[:-1]              # remove o +
+            else:
+                check = False
+            # verifica se é uma jogada de desambiguação ==
+            helper = move[:-2]
+            # recupera o campo destino ===================
+            move = move[-2:]
+            field = convert_field(move)  # converte em coordenada
+        return piece, field, capture, check, helper, castle
+
+    def valid_move(self, move, piece, field, capture, castle):
+        # se for captura e a casa destino estiver vazia
+        # for um peão e a linha de destino for 2 ou 5 caso contrario
+        # dispara erro, pois o peão é a unica peça que permite isso
+        if capture:
+            if self[field] is None:
+                if (piece == Pawn) and (field[1] in [2, 5]):
+                    if self._enpassant == '-' or not self._enpassant in move:
+                        return False
+                else:
+                    return False
+        else:
+        # se não for uma captura e a casa destino estiver ocupada
+        # por outra pedra, o movimento não é válido
+            if self[field] is not None:
+                return False
+
+        # validação do castling <<--
+        # se o FEN indicar que o castle não é possível a jogada é inválida
+        # TODO: Terminar validação
+        if castle:
+            if move == "O-O":  # kingside castling
+                if self._white_to_move:
+                    if not 'K' in self._castle:
+                        return False
+                    if self[0, 5] is not None or self[0, 6] is not None:
+                        return False
+                else:
+                    if not 'k' in self._castle:
+                        return False
+                    if self[7, 5] is not None or self[7, 6] is not None:
+                        return False
+
+            elif move == "O-O-O":  # queenside castling
+                if self._white_to_move:
+                    if not 'Q' in self._castle:
+                        return False
+                    if self[0, 3] is not None or self[0, 2] is not None:
+                        return False
+                else:
+                    if not 'q' in self._castle:
+                        return False
+                    if self[7, 3] is not None or self[7, 2] is not None:
+                        return False
+
+        # caso não tenha encontrado nenhuma situação inválida
+        # movimento retorna verdadeiro
+        return True
 
     def find_piece(self, piece, field):
         """
@@ -256,10 +380,6 @@ class Board(object):
                 if (new[1] == 2) and isinstance(b, Pawn) and b.white():
                     self[new[0], 3] = None
 
-        # Se for uma jogada das pretas, incrementa o fullmove
-        if not self._white_to_move:
-            self._fullmove += 1
-
         # atualiza castling options =============================
         if isinstance(p, King):  # se mover o REI
             if self._white_to_move:
@@ -284,81 +404,10 @@ class Board(object):
 
         # troca a vez ===========================================
         if not castling:
+            # Se for uma jogada das pretas, incrementa o fullmove
+            if not self._white_to_move:
+                self._fullmove += 1
             self._white_to_move = not self._white_to_move
-
-    def get_fen(self):
-        def print_board():
-            r = ""
-            for j in reversed(range(8)):
-                counter = 0
-                for i in range(8):
-                    if self[i, j] is None:
-                        counter += 1
-                    else:
-                        if counter > 0:
-                            r += str(counter)
-                        counter = 0
-                        r += self[i, j].to_string()
-                if counter > 0:
-                    r += str(counter)
-                if j > 0:
-                    r += "/"
-            return r
-
-        def print_vez():
-            return 'w' if self._white_to_move else 'b'
-
-        def print_castle():
-            return self._castle
-
-        def print_enpassant():
-            return self._enpassant
-
-        def print_halfmove():
-            return str(self._halfmove)
-
-        def print_fullmove():
-            return str(self._fullmove)
-
-        s = ' '.join([print_board(), print_vez(), print_castle(),
-                print_enpassant(), print_halfmove(), print_fullmove()])
-        return s
-
-    def set_fen(self, fen):
-        def letter_to_piece(letter):
-            black = not letter.isupper()
-            letter = letter.lower()
-            if letter == "r":
-                piece = Rock(self, black=black)
-            if letter == "n":
-                piece = Knight(self, black=black)
-            if letter == "b":
-                piece = Bishop(self, black=black)
-            if letter == "q":
-                piece = Queen(self, black=black)
-            if letter == "k":
-                piece = King(self, black=black)
-            if letter == "p":
-                piece = Pawn(self, black=black)
-            return piece
-        tabuleiro, vez, castle, enpassant, halfmove, fullmove = fen.split(' ')
-        indice = 0
-        linhas = tabuleiro.split('/')
-        for linha in reversed(linhas):
-            for letra in linha:
-                if not letra.isdigit():
-                    peca = letter_to_piece(letra)
-                    self._board[indice] = peca
-                    indice += 1
-                else:
-                    for i in range(int(letra)):
-                        self._board[indice] = None
-                        indice += 1
-        self._white_to_move = (vez == 'w')
-        self._castle = castle
-        self._enpassant = enpassant
-        self._halfmove = int(halfmove)
-        self._fullmove = int(fullmove)
 
 
 class Piece(object):
