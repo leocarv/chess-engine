@@ -1,4 +1,5 @@
-﻿class InvalidMove(Exception):
+# -*- coding: utf-8 -*-
+class InvalidMove(Exception):
     pass
 
 
@@ -301,24 +302,24 @@ class Board(object):
                 if self._white_to_move:
                     if not 'K' in self._castle:
                         return False
-                    if self[0, 5] is not None or self[0, 6] is not None:
+                    if self[5, 0] is not None or self[6, 0] is not None:
                         return False
                 else:
                     if not 'k' in self._castle:
                         return False
-                    if self[7, 5] is not None or self[7, 6] is not None:
+                    if self[5, 7] is not None or self[6, 7] is not None:
                         return False
 
             elif move == "O-O-O":  # queenside castling
                 if self._white_to_move:
                     if not 'Q' in self._castle:
                         return False
-                    if self[0, 3] is not None or self[0, 2] is not None:
+                    if self[3, 0] is not None or self[2, 0] is not None:
                         return False
                 else:
                     if not 'q' in self._castle:
                         return False
-                    if self[7, 3] is not None or self[7, 2] is not None:
+                    if self[3, 7] is not None or self[2, 7] is not None:
                         return False
 
         # caso não tenha encontrado nenhuma situação inválida
