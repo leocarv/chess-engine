@@ -166,25 +166,6 @@ class Board(object):
 
         "move" is given in the Short Algebraic notation.
         """
-        """
-        if move == "O-O":
-            # kingside castling
-            if self._white_to_move:
-                self.move_coordinate((4, 0), (6, 0))
-                self.move_coordinate((7, 0), (5, 0), True)
-            else:
-                self.move_coordinate((4, 7), (6, 7))
-                self.move_coordinate((7, 7), (5, 7), True)
-        elif move == "O-O-O":
-            # queenside castling
-            if self._white_to_move:
-                self.move_coordinate((4, 0), (2, 0))
-                self.move_coordinate((0, 0), (3, 0), True)
-            else:
-                self.move_coordinate((4, 7), (2, 7))
-                self.move_coordinate((0, 7), (3, 7), True)
-        else:
-        """
         #=================================================================
         # faz o parser do texto do movimento
         piece, field, capture, check, helper, castle = self.parse_move(move)
@@ -194,7 +175,7 @@ class Board(object):
             raise InvalidMove(move)
         #=================================================================
         # faz uma pesquina no tabuleiro para encontrar a peça
-        possible_pieces = self.find_piece(piece, field)
+        possible_pieces = self.find_piece(piece, field, castle)
         # se achar um total de peças diferente de 1 tenta a desambiguação!
         if len(possible_pieces) != 1:
             possible_pieces = self.use_helper(helper, possible_pieces)
@@ -211,7 +192,7 @@ class Board(object):
             self._enpassant = '-'
         #=================================================================
         # realiza o movimento ============================================
-        self.move_coordinate(possible_pieces[0], field)
+        self.move_coordinate(possible_pieces[0], field, castle)
 
     def parse_move(self, move):
 
@@ -326,19 +307,25 @@ class Board(object):
         # movimento retorna verdadeiro
         return True
 
-    def find_piece(self, piece, field):
+    def find_piece(self, piece, field, castle):
         """
         Finds the piece "piece" that can go to the field "field".
         """
         candidates = []
-        # first find all pieces of the type "piece" on the board:
-        for i in range(8):
-            for j in range(8):
-                if isinstance(self[i, j], piece) and \
-                        (self[i, j].white() == self._white_to_move):
-                            candidates += [(i, j)]
-        # try each of them:
-        candidates = [x for x in candidates if self[x].can_move(x, field)]
+        if castle:
+            if self._white_to_move:
+                candidates = [(4, 0)]
+            else:
+                candidates = [(4, 7)]
+        else:
+            # first find all pieces of the type "piece" on the board:
+            for i in range(8):
+                for j in range(8):
+                    if isinstance(self[i, j], piece) and \
+                            (self[i, j].white() == self._white_to_move):
+                                candidates += [(i, j)]
+            # try each of them:
+            candidates = [x for x in candidates if self[x].can_move(x, field)]
         return candidates
 
     def use_helper(self, helper, candidates):
@@ -362,13 +349,21 @@ class Board(object):
         if p is None:
             raise InvalidMove()
 
-        if not castling:
-            if not (self._white_to_move == (not p.black())):
-                raise InvalidMove()
+        if not (self._white_to_move == (not p.black())):
+            raise InvalidMove()
 
         # faz o movimento de fato!
         self[old] = None
         self[new] = p
+
+        # castle move
+        if castling:
+            if old[0] == 4 and new[0] == 6:  # 0-0
+                self[(5, old[1])] = self[(7, old[1])]
+                self[(7, old[1])] = None
+            if old[0] == 4 and new[0] == 2:  # 0-0-0
+                self[(3, old[1])] = self[(0, old[1])]
+                self[(0, old[1])] = None
 
         # en passant:
         if isinstance(p, Pawn):
@@ -380,7 +375,6 @@ class Board(object):
                 b = self[new[0], 3]
                 if (new[1] == 2) and isinstance(b, Pawn) and b.white():
                     self[new[0], 3] = None
-
         # atualiza castling options =============================
         if isinstance(p, King):  # se mover o REI
             if self._white_to_move:
@@ -402,13 +396,11 @@ class Board(object):
                     self._castle = self._castle.replace('k', "")
         if self._castle == '':
             self._castle = '-'
-
-        # troca a vez ===========================================
-        if not castling:
-            # Se for uma jogada das pretas, incrementa o fullmove
-            if not self._white_to_move:
-                self._fullmove += 1
-            self._white_to_move = not self._white_to_move
+        # Se for uma jogada das pretas, incrementa o fullmove
+        if not self._white_to_move:
+            self._fullmove += 1
+         # troca a vez ===========================================
+        self._white_to_move = not self._white_to_move
 
 
 class Piece(object):
